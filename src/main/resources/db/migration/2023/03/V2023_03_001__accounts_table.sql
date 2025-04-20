@@ -1,0 +1,9 @@
+CREATE TABLE ACCOUNTS
+(
+  ID               BIGINT PRIMARY KEY                     NOT NULL AUTO_INCREMENT,
+  EXTERNAL_ID      VARCHAR UNIQUE                         NOT NULL,
+  BALANCE_AMOUNT   DECIMAL                                NOT NULL,
+  BALANCE_CURRENCY VARCHAR(3)                             NOT NULL,
+  CREATED_AT       TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+  UPDATED_AT       TIMESTAMP WITH TIME ZONE
+);

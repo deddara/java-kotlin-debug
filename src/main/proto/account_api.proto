@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+package vivid.ledger.v1;
+
+option java_multiple_files = true;
+option java_package = "money.vivid.ledger.v1";
+
+import "google/type/money.proto";
+
+service AccountApi {
+  // create an account
+  rpc CreateAccount(CreateAccountRequest) returns (CreateAccountResponse);
+  // Get account balance by account id request
+  rpc GetAccountBalance(GetAccountBalanceRequest) returns (GetAccountBalanceResponse);
+}
+
+message CreateAccountRequest {
+  // Unique ID of an account
+  string account_id = 1;
+  // ISO-4217 currency alpha code of this account
+  string currency = 2;
+}
+
+message CreateAccountResponse {}
+
+message GetAccountBalanceRequest {
+  // Account id
+  string account_id = 1;
+}
+
+// Balance data
+message GetAccountBalanceResponse {
+  // Account balance
+  google.type.Money balance = 1;
+}

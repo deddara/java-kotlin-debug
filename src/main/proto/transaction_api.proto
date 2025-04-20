@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package vivid.ledger.v1;
+
+import "google/type/date.proto";
+import "google/type/money.proto";
+
+service TransactionApi {
+  // Create a transaction for further processing
+  rpc CreateTransaction(CreateTransactionRequest) returns (CreateTransactionResponse);
+}
+
+message CreateTransactionRequest {
+  // Unique id of the current operation
+  string operation_id = 1;
+  // date when operation should affect balance
+  google.type.Date value_date = 2;
+  // ID of an account on which this transaction is created
+  string account_id = 3;
+  // amount of transaction. For debit amount is negative, for credit - positive
+  google.type.Money amount = 4;
+}
+
+message CreateTransactionResponse {}
