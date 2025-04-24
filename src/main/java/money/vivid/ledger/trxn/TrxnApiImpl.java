@@ -2,6 +2,7 @@ package money.vivid.ledger.trxn;
 
 import io.grpc.stub.StreamObserver;
 import lombok.extern.slf4j.Slf4j;
+import money.vivid.ledger.common.CommonMapper;
 import net.devh.boot.grpc.server.service.GrpcService;
 import vivid.ledger.v1.TransactionApiGrpc.TransactionApiImplBase;
 import vivid.ledger.v1.TransactionApiOuterClass.CreateTransactionRequest;
@@ -21,7 +22,7 @@ public class TrxnApiImpl extends TransactionApiImplBase {
   public void createTransaction(
       CreateTransactionRequest request,
       StreamObserver<CreateTransactionResponse> responseObserver) {
-    trxnCreator.create(request);
+    trxnCreator.create(request.getAccountId(), CommonMapper.amount(request.getAmount()), request.getOperationId(), CommonMapper.localDate(request.getValueDate()));
     responseObserver.onNext(CreateTransactionResponse.getDefaultInstance());
     responseObserver.onCompleted();
   }

@@ -49,4 +49,14 @@ class AmountTest {
         .withFailMessage("One can't add amounts in different currencies")
         .isInstanceOf(IllegalArgumentException.class);
   }
+
+  @Test
+  void addingDifferentCurrenciesThrows() {
+    var usd = new Amount("USD", new BigDecimal("0.00"));
+    var eur = new Amount("EUR", new BigDecimal("1.00"));
+
+    assertThatThrownBy(() -> usd.add(eur))
+      .isInstanceOf(IllegalArgumentException.class)
+      .hasMessageContaining("Currencies differ");
+  }
 }

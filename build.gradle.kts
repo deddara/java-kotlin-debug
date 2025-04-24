@@ -8,6 +8,7 @@ plugins {
   id("jacoco")
   id("java")
   id("org.springframework.boot") version "3.2.2"
+    kotlin("jvm")
 }
 
 group = "money.vivid"
@@ -46,6 +47,7 @@ dependencies {
   testImplementation("org.springframework.boot:spring-boot-starter-test")
   testImplementation("org.springframework.kafka:spring-kafka-test")
   testImplementation("org.testcontainers:redpanda")
+    implementation(kotlin("stdlib"))
 }
 
 dependencyManagement {

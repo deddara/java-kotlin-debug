@@ -1,0 +1,135 @@
+diff --git a/src/main/java/money/vivid/ledger/account/Account.java b/src/main/java/money/vivid/ledger/account/Account.java
+index 7c1effa..4b3e6bf 100644
+--- a/src/main/java/money/vivid/ledger/account/Account.java
++++ b/src/main/java/money/vivid/ledger/account/Account.java
+@@
+-import org.springframework.data.annotation.Id;
++import org.springframework.data.annotation.Id;
++import org.springframework.data.annotation.Version;
+@@
+-@With
+-public record Account(
+-        @Id Long id,
+-        String externalId,
+-        Amount balance,
+-        LocalDateTime createdAt,
+-        LocalDateTime updatedAt) {
++@With
++public record Account(
++        @Id Long id,
++        String externalId,
++        Amount balance,
++        LocalDateTime createdAt,
++        LocalDateTime updatedAt,
++        @Version Integer version) {
+@@
+-    public static Account create(String externalId, Amount balance) {
+-        LocalDateTime now = LocalDateTime.now();
+-        return new Account(null, externalId, balance, now, now);
++    public static Account create(String externalId, Amount balance) {
++        LocalDateTime now = LocalDateTime.now();
++        return new Account(null, externalId, balance, now, now, 0);
+     }
+ }
+
+diff --git a/src/main/java/money/vivid/ledger/trxn/TrxnCreator.java b/src/main/java/money/vivid/ledger/trxn/TrxnCreator.java
+index 2d2a4d1..d0e4eac 100644
+--- a/src/main/java/money/vivid/ledger/trxn/TrxnCreator.java
++++ b/src/main/java/money/vivid/ledger/trxn/TrxnCreator.java
+@@
+-import org.springframework.stereotype.Component;
++import io.grpc.Status;
++import org.springframework.dao.OptimisticLockingFailureException;
++import org.springframework.stereotype.Component;
+@@
+-        var account = accounts.findById(accountId)
+-                .orElseThrow(() -> Status.NOT_FOUND.asRuntimeException());
++        var account = accounts.findById(accountId)
++                .orElseThrow(() -> Status.NOT_FOUND
++                        .withDescription("Account " + accountId + " not found")
++                        .asRuntimeException());
++
++        if (!account.balance().currency().equals(amount.currency())) {
++            throw Status.INVALID_ARGUMENT
++                    .withDescription("Currency mismatch between account and transaction")
++                    .asRuntimeException();
++        }
+@@
+-        accounts.save(updated);
++        try {
++            accounts.save(updated);
++        } catch (OptimisticLockingFailureException e) {
++            log.warn("Retrying due to optimistic lock for account {}", accountId);
++            var reloaded = accounts.findById(accountId)
++                    .orElseThrow(() -> Status.INTERNAL.withDescription("Lost account").asRuntimeException());
++            accounts.save(reloaded.withBalance(reloaded.balance().add(amount)));
++        }
+         return trxn;
+ }
+
+diff --git a/src/main/resources/db/migration/V2__add_version_column.sql b/src/main/resources/db/migration/V2__add_version_column.sql
+new file mode 100644
++ALTER TABLE ACCOUNTS
++    ADD COLUMN VERSION INT NOT NULL DEFAULT 0;
+
+diff --git a/src/main/resources/application.properties b/src/main/resources/application.properties
+@@
+-spring.application.name=legder
++spring.application.name=ledger
+
+diff --git a/src/test/java/money/vivid/ledger/integration/TrxnCurrencyMismatchIT.java b/src/test/java/money/vivid/ledger/integration/TrxnCurrencyMismatchIT.java
+new file mode 100644
++package money.vivid.ledger.integration;
++
++import io.grpc.Status;
++import io.grpc.StatusRuntimeException;
++import money.vivid.ledger.common.Amount;
++import org.junit.jupiter.api.Test;
++import org.springframework.boot.test.context.SpringBootTest;
++
++import java.math.BigDecimal;
++import java.time.LocalDate;
++import java.util.Currency;
++
++import static org.assertj.core.api.Assertions.assertThat;
++import static org.junit.jupiter.api.Assertions.assertThrows;
++
++@SpringBootTest
++class TrxnCurrencyMismatchIT extends GrpcFixture {
++
++    @Test
++    void createTransactionWithDifferentCurrencyFails() {
++        // arrange
++        var accountId = createAccount("acc-100", "USD");
++        var amount = Amount.of(BigDecimal.TEN, Currency.getInstance("EUR"));
++
++        // act + assert
++        StatusRuntimeException ex = assertThrows(StatusRuntimeException.class,
++                () -> createTransaction(accountId, amount, LocalDate.now(), "op-999"));
++        assertThat(ex.getStatus().getCode()).isEqualTo(Status.INVALID_ARGUMENT.getCode());
++    }
++}
+
+diff --git a/src/test/java/money/vivid/ledger/common/AmountTest.java b/src/test/java/money/vivid/ledger/common/AmountTest.java
+new file mode 100644
++package money.vivid.ledger.common;
++
++import org.junit.jupiter.api.Test;
++
++import java.math.BigDecimal;
++import java.util.Currency;
++
++import static org.assertj.core.api.Assertions.assertThatThrownBy;
++
++class AmountTest {
++
++    @Test
++    void addingDifferentCurrenciesThrows() {
++        var usd = Amount.of(BigDecimal.ONE, Currency.getInstance("USD"));
++        var eur = Amount.of(BigDecimal.ONE, Currency.getInstance("EUR"));
++
++        assertThatThrownBy(() -> usd.add(eur))
++                .isInstanceOf(IllegalArgumentException.class)
++                .hasMessageContaining("Currencies differ");
++    }
++}
